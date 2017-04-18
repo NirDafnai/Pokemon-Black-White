@@ -11,24 +11,7 @@ DATASEG
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
 	linefeed db 13, 10, "$"
-	randomNumber db 0
 CODESEG
-proc randomGenerate
-	push ax
-	push cx
-	push dx
-	mov ah, 00h  ; interrupts to get system time        
-	int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
-	mov  ax, dx
-	xor  dx, dx
-	mov  cx, 10    
-	div  cx       ; now dx contains the remainder of the division - from 0 to 9
-	mov [randomNumber], dl
-	pop dx
-	pop cx
-	pop ax
-	ret 6
-	endp
 proc walkMenu
 	mov dx, offset menuMsg1
 	mov ah, 9h
@@ -56,8 +39,13 @@ call walk
 		mov [filehandle], ax
 		ret
 			proc walk
-		call randomGenerate
-	cmp [randomNumber], 4
+	mov ah, 00h  ; interrupts to get system time        
+	int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
+	mov  ax, dx
+	xor  dx, dx
+	mov  cx, 10    
+	div  cx       ; now dx contains the remainder of the division - from 0 to 9
+	cmp dl, 4
 	jb noCombat
 	call combat
 noCombat:
