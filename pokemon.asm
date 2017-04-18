@@ -44,7 +44,7 @@ proc walkMenu
 	cmp al, 'x'
 	je openerror
 	endp
-walk1: ;test
+walk1:
 call walk
 	proc OpenFile
 		; Open file
