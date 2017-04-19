@@ -12,8 +12,9 @@ DATASEG
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
 	linefeed db 13, 10, "$"
 	randomNumber db 0
+	playerPokemonDamage db 1
 	playerPokemonName db 'Pikachu$'
-	playerPokemonLevel db 1
+	playerPokemonLevel db 2
 	playerCurrentHealth db 10
 	PlayerMaxHealth db 10
 	pokemonNameMessage db 'Your Pokemon: $'
@@ -22,6 +23,15 @@ DATASEG
 	playerLevelMessage db 'Pokemon level is: $'
 	playerEXP db 0
 	playerMaxEXP db 10
+	levelHealthMultiplier db 5
+	enemyPokemonDamage db 1
+	enemyPokemonName db 'Rattata$'
+	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
+	enemyPokemonLevel db 1
+	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
+	enemyCurrentHealth db 1
+	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
+	enemyMaxHealth db 1
 CODESEG
 proc randomGenerate
 	push ax
@@ -82,8 +92,29 @@ noCombat:
 	mov dx, offset linefeed
 	int 21h
 	call playerPokemonStats
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	call generateEnemyStats
+	call enemyPokemonStats
 	endp combat
 	jmp exit
+proc generateEnemyStats
+	push ax
+	push dx
+	xor ax, ax
+	xor dx, dx
+	mov al, [playerPokemonLevel]
+	mov [enemyPokemonLevel], al
+	mov dl, [levelHealthMultiplier]
+	mul dl
+	mov [enemyMaxHealth], al
+	mov [enemyCurrentHealth], al
+	pop dx
+	pop ax
+	ret
+endp
 proc playerPokemonStats
 	mov dx, offset pokemonNameMessage
 	mov ah, 9h
@@ -199,6 +230,80 @@ proc playerPokemonStats
 	mov ah, 02h
 	int 21h
 	ret
+endp
+proc enemyPokemonStats
+	mov dx, offset enemyPokemonNameMsg
+	mov ah, 9h
+	int 21h
+	mov dx, offset enemyPokemonName
+	mov ah, 9h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset enemyPokemonLvlMsg
+	mov ah, 9h
+	int 21h
+	xor ax, ax
+	mov al, [enemyPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset enemyPokemonHealthMsg
+	mov ah, 9h
+	int 21h
+	xor ax, ax
+	mov al, [enemyCurrentHealth]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyCurrentHealth]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov dl, '/'
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyMaxHealth]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyMaxHealth]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+ret
 endp
 openerror:
 	mov dx, offset ErrorMsg
