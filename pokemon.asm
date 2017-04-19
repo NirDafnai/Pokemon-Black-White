@@ -12,10 +12,14 @@ DATASEG
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
 	linefeed db 13, 10, "$"
 	randomNumber db 0
+	playerPokemonName db 'Pikachu$'
+	playerPokemonLevel db 1
 	playerCurrentHealth db 10
 	PlayerMaxHealth db 10
-	playerHealthMessage db 'Your health: $'
-	playerEXPMessage db 'Your experience is: $'
+	pokemonNameMessage db 'Your Pokemon: $'
+	playerHealthMessage db 'Pokemon health: $'
+	playerEXPMessage db 'Pokemon experience is: $'
+	playerLevelMessage db 'Pokemon level is: $'
 	playerEXP db 0
 	playerMaxEXP db 10
 CODESEG
@@ -48,7 +52,7 @@ proc walkMenu
 	cmp al, 'w'
 	je walk1
 	cmp al, 'x'
-	je openerror
+	je exit
 	endp
 walk1:
 call walk
@@ -72,6 +76,43 @@ noCombat:
 	proc combat
 	mov dx, offset combatMsg
 	mov ah, 9h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	call playerPokemonStats
+	endp combat
+	jmp exit
+proc playerPokemonStats
+	mov dx, offset pokemonNameMessage
+	mov ah, 9h
+	int 21h
+	mov dx, offset playerPokemonName
+	mov ah, 9h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset playerLevelMessage
+	mov ah, 9h
+	int 21h
+	xor ax, ax
+	mov al, [playerPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [playerPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
 	int 21h
 	; new line
 	mov ah, 09
@@ -122,9 +163,43 @@ noCombat:
 	mov dx, offset playerEXPMessage
 	mov ah, 9h
 	int 21h
-	
-	endp combat
-	jmp exit
+	xor ax, ax
+	mov al, [playerEXP]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [playerEXP]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov dl, '/'
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [playerMaxEXP]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [playerMaxEXP]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	ret
+endp
 openerror:
 	mov dx, offset ErrorMsg
 	mov ah, 9h
