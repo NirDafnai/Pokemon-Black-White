@@ -10,6 +10,7 @@ DATASEG
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
+	menuMsg2 db 'Press a to attack'
 	linefeed db 13, 10, "$"
 	randomNumber db 0
 	playerPokemonDamage db 1
@@ -33,6 +34,15 @@ DATASEG
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	enemyMaxHealth db 1
 CODESEG
+proc attack
+	call randomGenerate
+	xor ax, ax
+	mov al, [randomNumber]
+	sub [enemyCurrentHealth], al
+	call resetScreen
+	call displayStats
+ret
+endp
 proc randomGenerate
 	push ax
 	push cx
@@ -66,7 +76,7 @@ proc walkMenu
 	endp
 walk1:
 call walk
-	proc OpenFile
+proc OpenFile
 		; Open file
 		mov ah, 3Dh
 		xor al, al
@@ -75,15 +85,18 @@ call walk
 		jc openerror
 		mov [filehandle], ax
 		ret
-			proc walk
-		call randomGenerate
+proc walk
+	call randomGenerate
 	cmp [randomNumber], 4
 	jb noCombat
 	call combat
 noCombat:
 	endp walk
 	jmp exit
-	proc combat
+proc combat
+loop combat2
+combat2:
+	call resetScreen
 	mov dx, offset combatMsg
 	mov ah, 9h
 	int 21h
@@ -91,15 +104,43 @@ noCombat:
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
-	call playerPokemonStats
+	call generateEnemyStats
+combat3:
+	call displayStats
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
-	call generateEnemyStats
-	call enemyPokemonStats
+	mov dx, offset menuMsg2
+	mov ah, 9h
+	int 21h
+	mov ah, 07h
+	int 21h
+	cmp al, 'a'
+	je attack1
 	endp combat
 	jmp exit
+attack1:
+	call attack
+	cmp [enemyCurrentHealth], 0
+	call resetScreen
+	jg combat3
+not1:
+mov cx, 0
+jmp exit
+proc displayStats
+	call playerPokemonStats
+	call enemyPokemonStats
+	ret
+endp
+proc resetScreen
+	mov ax, 13h
+	int 10h
+	mov ah, 0
+	mov al, 2
+	int 10h
+	ret
+endp
 proc generateEnemyStats
 	push ax
 	push dx
@@ -232,6 +273,10 @@ proc playerPokemonStats
 	ret
 endp
 proc enemyPokemonStats
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
 	mov dx, offset enemyPokemonNameMsg
 	mov ah, 9h
 	int 21h
