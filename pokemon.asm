@@ -10,7 +10,7 @@ DATASEG
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
-	menuMsg2 db 'Press a to attack'
+	menuMsg2 db 'Press a to attack$'
 	linefeed db 13, 10, "$"
 	randomNumber db 0
 	playerPokemonDamage db 1
@@ -34,17 +34,11 @@ DATASEG
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	enemyMaxHealth db 1
 CODESEG
-proc attack
-	call randomGenerate
-	xor ax, ax
-	mov al, [randomNumber]
-	sub [enemyCurrentHealth], al
-	call resetScreen
-	call displayStats
-ret
-endp
 proc randomGenerate
+	push bp
+	mov bp, sp
 	push ax
+	push bx
 	push cx
 	push dx
 	mov ah, 00h  ; interrupts to get system time        
@@ -53,13 +47,72 @@ proc randomGenerate
 	xor  dx, dx
 	mov  cx, 10    
 	div  cx       ; now dx contains the remainder of the division - from 0 to 9
-	mov [randomNumber], dl
+	xor bx, bx
+	mov bx, [bp+4]
+	mov [bx], dx
+	;mov [randomNumber], dl
 	pop dx
 	pop cx
+	pop bx
 	pop ax
+	pop bp
+	ret 2
+endp randomGenerate
+proc combat
+	push dx
+	push ax
+	call resetScreen
+	call generateEnemyStats
+playerInput:
+	call resetScreen
+	call displayStats
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg2
+	mov ah, 9h
+	int 21h
+	mov ah, 07h
+	int 21h
+	cmp al, 'a'
+	je attack1
+	jmp playerInput
+attack1:
+	push offset randomNumber
+	call randomGenerate
+	push offset randomNumber
+	push offset enemyCurrentHealth
+	call attack
+	call resetScreen
+	call displayStats
+	cmp [enemyCurrentHealth], 0
+	jg playerInput
+	pop ax
+	pop dx
 	ret
-	endp
+endp combat
+proc attack
+	randomNumberParm equ [bp+4]
+	enemyHealth equ [bp+6]
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	xor ax, ax
+	xor bx, bx
+	mov bx, enemyHealth
+	mov si, randomNumberParm
+	mov al, [si]
+	sub [bx], al
+	pop bx
+	pop ax
+	pop bp
+	ret 4
+endp attack
 proc walkMenu
+	push dx
+	push ax
 	mov dx, offset menuMsg1
 	mov ah, 9h
 	int 21h
@@ -73,74 +126,35 @@ proc walkMenu
 	je walk1
 	cmp al, 'x'
 	je exit
-	endp
-walk1:
-call walk
-proc OpenFile
-		; Open file
-		mov ah, 3Dh
-		xor al, al
-		mov dx, offset filename
-		int 21h
-		jc openerror
-		mov [filehandle], ax
-		ret
+	walk1:
+	call combat ;CHANGE LATER TO WALK
+	pop ax
+	pop dx
+endp walkMenu
 proc walk
+	push offset randomNumber
 	call randomGenerate
 	cmp [randomNumber], 4
 	jb noCombat
 	call combat
 noCombat:
-	endp walk
-	jmp exit
-proc combat
-loop combat2
-combat2:
-	call resetScreen
-	mov dx, offset combatMsg
-	mov ah, 9h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	call generateEnemyStats
-combat3:
-	call displayStats
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov dx, offset menuMsg2
-	mov ah, 9h
-	int 21h
-	mov ah, 07h
-	int 21h
-	cmp al, 'a'
-	je attack1
-	endp combat
-	jmp exit
-attack1:
-	call attack
-	cmp [enemyCurrentHealth], 0
-	call resetScreen
-	jg combat3
-not1:
-mov cx, 0
-jmp exit
+	ret
+endp walk
 proc displayStats
 	call playerPokemonStats
 	call enemyPokemonStats
 	ret
-endp
+endp displayStats
 proc resetScreen
+	push ax
 	mov ax, 13h
 	int 10h
 	mov ah, 0
 	mov al, 2
 	int 10h
+	pop ax
 	ret
-endp
+endp resetScreen
 proc generateEnemyStats
 	push ax
 	push dx
@@ -157,6 +171,8 @@ proc generateEnemyStats
 	ret
 endp
 proc playerPokemonStats
+	push dx
+	push ax
 	mov dx, offset pokemonNameMessage
 	mov ah, 9h
 	int 21h
@@ -270,9 +286,13 @@ proc playerPokemonStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
+	pop ax
+	pop dx
 	ret
-endp
+endp playerPokemonStats
 proc enemyPokemonStats
+	push ax
+	push dx
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
@@ -348,14 +368,25 @@ proc enemyPokemonStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
-ret
-endp
+	pop dx
+	pop ax
+	ret
+endp enemyPokemonStats
+proc OpenFile
+	; Open file
+	mov ah, 3Dh
+	xor al, al
+	mov dx, offset filename
+	int 21h
+	jc openerror
+	mov [filehandle], ax
+	ret
 openerror:
 	mov dx, offset ErrorMsg
 	mov ah, 9h
 	int 21h
 	ret
-		endp OpenFile
+endp OpenFile
 	proc ReadHeader
 		; Read BMP file header, 54 bytes
 		mov ah,3fh
