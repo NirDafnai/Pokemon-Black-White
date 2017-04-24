@@ -2,6 +2,8 @@ IDEAl
 MODEL small
 STACK 100h
 DATASEG
+	enemyCurrentHealth db 1
+	playerCurrentHealth db 10
 	filename db 'test.bmp',0
 	filehandle dw ?
 	Header db 54 dup (0)
@@ -16,7 +18,6 @@ DATASEG
 	playerPokemonDamage db 1
 	playerPokemonName db 'Pikachu$'
 	playerPokemonLevel db 2
-	playerCurrentHealth db 10
 	PlayerMaxHealth db 10
 	pokemonNameMessage db 'Your Pokemon: $'
 	playerHealthMessage db 'Pokemon health: $'
@@ -30,7 +31,6 @@ DATASEG
 	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
 	enemyPokemonLevel db 1
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
-	enemyCurrentHealth db 1
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	enemyMaxHealth db 1
 CODESEG
@@ -76,18 +76,17 @@ playerInput:
 	mov ah, 07h
 	int 21h
 	cmp al, 'a'
-	je attack1
-	jmp playerInput
+	jne playerInput
 attack1:
-	push offset randomNumber
-	call randomGenerate
-	push offset randomNumber
+	;push offset randomNumber
+	;call randomGenerate
 	push offset enemyCurrentHealth
+	push offset randomNumber
 	call attack
 	call resetScreen
 	call displayStats
 	cmp [enemyCurrentHealth], 0
-	jg playerInput
+	ja playerInput
 	pop ax
 	pop dx
 	ret
@@ -99,12 +98,18 @@ proc attack
 	mov bp, sp
 	push ax
 	push bx
-	xor ax, ax
-	xor bx, bx
+	push si
 	mov bx, enemyHealth
 	mov si, randomNumberParm
-	mov al, [si]
-	sub [bx], al
+	mov ax, [si]
+	;cmp [bx], ax
+	;jl noHealthLeft
+	;sub [bx], al
+	;jmp finish
+;noHealthLeft:
+	mov [enemyCurrentHealth], 0
+;finish:
+	pop si
 	pop bx
 	pop ax
 	pop bp
