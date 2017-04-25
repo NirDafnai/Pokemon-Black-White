@@ -2,6 +2,8 @@ IDEAl
 MODEL small
 STACK 100h
 DATASEG
+	enemyCurrentHealth db 1
+	playerCurrentHealth db 10
 	filename db 'test.bmp',0
 	filehandle dw ?
 	Header db 54 dup (0)
@@ -10,13 +12,12 @@ DATASEG
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
-	menuMsg2 db 'Press a to attack'
+	menuMsg2 db 'Press a to attack$'
 	linefeed db 13, 10, "$"
 	randomNumber db 0
 	playerPokemonDamage db 1
 	playerPokemonName db 'Pikachu$'
 	playerPokemonLevel db 2
-	playerCurrentHealth db 10
 	PlayerMaxHealth db 10
 	pokemonNameMessage db 'Your Pokemon: $'
 	playerHealthMessage db 'Pokemon health: $'
@@ -30,36 +31,12 @@ DATASEG
 	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
 	enemyPokemonLevel db 1
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
-	enemyCurrentHealth db 1
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	enemyMaxHealth db 1
 CODESEG
-proc attack
-	call randomGenerate
-	xor ax, ax
-	mov al, [randomNumber]
-	sub [enemyCurrentHealth], al
-	call resetScreen
-	call displayStats
-ret
-endp
-proc randomGenerate
-	push ax
-	push cx
-	push dx
-	mov ah, 00h  ; interrupts to get system time        
-	int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
-	mov  ax, dx
-	xor  dx, dx
-	mov  cx, 10    
-	div  cx       ; now dx contains the remainder of the division - from 0 to 9
-	mov [randomNumber], dl
-	pop dx
-	pop cx
-	pop ax
-	ret
-	endp
 proc walkMenu
+	push dx
+	push ax
 	mov dx, offset menuMsg1
 	mov ah, 9h
 	int 21h
@@ -73,39 +50,43 @@ proc walkMenu
 	je walk1
 	cmp al, 'x'
 	je exit
-	endp
-walk1:
-call walk
-proc OpenFile
-		; Open file
-		mov ah, 3Dh
-		xor al, al
-		mov dx, offset filename
-		int 21h
-		jc openerror
-		mov [filehandle], ax
-		ret
-proc walk
-	call randomGenerate
-	cmp [randomNumber], 4
-	jb noCombat
-	call combat
-noCombat:
-	endp walk
-	jmp exit
+	jne exit
+	walk1:
+	call walk
+	pop ax
+	pop dx
+endp walkMenu
+proc randomGenerate
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	mov ah, 00h  ; interrupts to get system time        
+	int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
+	mov  ax, dx
+	xor  dx, dx
+	mov  cx, 10    
+	div  cx       ; now dx contains the remainder of the division - from 0 to 9
+	xor bx, bx
+	mov bx, [bp+4]
+	mov [bx], dx
+	;mov [randomNumber], dl
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 2
+endp randomGenerate
 proc combat
-loop combat2
-combat2:
+	push dx
+	push ax
 	call resetScreen
-	mov dx, offset combatMsg
-	mov ah, 9h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
 	call generateEnemyStats
-combat3:
+playerInput:
+	call resetScreen
 	call displayStats
 	; new line
 	mov ah, 09
@@ -117,30 +98,69 @@ combat3:
 	mov ah, 07h
 	int 21h
 	cmp al, 'a'
-	je attack1
-	endp combat
-	jmp exit
+	jne playerInput
 attack1:
+	push offset randomNumber
+	call randomGenerate
+	push offset enemyCurrentHealth
+	push offset randomNumber
 	call attack
-	cmp [enemyCurrentHealth], 0
 	call resetScreen
-	jg combat3
-not1:
-mov cx, 0
-jmp exit
+	call displayStats
+	cmp [enemyCurrentHealth], 0
+	jg playerInput
+	pop ax
+	pop dx
+	ret
+endp combat
+proc attack
+	randomNumberParm equ [bp+4]
+	enemyHealth equ [bp+6]
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push si
+	mov bx, enemyHealth
+	mov si, randomNumberParm
+	mov ax, [si]
+	cmp [bx], al
+	jb noHealthLeft
+	sub [bx], al
+	jmp finish
+noHealthLeft:
+	mov [byte ptr bx], 0
+finish:
+	pop si
+	pop bx
+	pop ax
+	pop bp
+	ret 4
+endp attack
+proc walk
+	push offset randomNumber
+	call randomGenerate
+	cmp [randomNumber], 4
+	jb noCombat
+	call combat
+noCombat:
+	ret
+endp walk
 proc displayStats
 	call playerPokemonStats
 	call enemyPokemonStats
 	ret
-endp
+endp displayStats
 proc resetScreen
+	push ax
 	mov ax, 13h
 	int 10h
 	mov ah, 0
 	mov al, 2
 	int 10h
+	pop ax
 	ret
-endp
+endp resetScreen
 proc generateEnemyStats
 	push ax
 	push dx
@@ -157,6 +177,8 @@ proc generateEnemyStats
 	ret
 endp
 proc playerPokemonStats
+	push dx
+	push ax
 	mov dx, offset pokemonNameMessage
 	mov ah, 9h
 	int 21h
@@ -270,9 +292,13 @@ proc playerPokemonStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
+	pop ax
+	pop dx
 	ret
-endp
+endp playerPokemonStats
 proc enemyPokemonStats
+	push ax
+	push dx
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
@@ -348,14 +374,25 @@ proc enemyPokemonStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
-ret
-endp
+	pop dx
+	pop ax
+	ret
+endp enemyPokemonStats
+proc OpenFile
+	; Open file
+	mov ah, 3Dh
+	xor al, al
+	mov dx, offset filename
+	int 21h
+	jc openerror
+	mov [filehandle], ax
+	ret
 openerror:
 	mov dx, offset ErrorMsg
 	mov ah, 9h
 	int 21h
 	ret
-		endp OpenFile
+endp OpenFile
 	proc ReadHeader
 		; Read BMP file header, 54 bytes
 		mov ah,3fh
