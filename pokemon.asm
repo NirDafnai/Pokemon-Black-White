@@ -34,6 +34,28 @@ DATASEG
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	enemyMaxHealth db 1
 CODESEG
+proc walkMenu
+	push dx
+	push ax
+	mov dx, offset menuMsg1
+	mov ah, 9h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov ah, 07h
+	int 21h
+	cmp al, 'w'
+	je walk1
+	cmp al, 'x'
+	je exit
+	jne exit
+	walk1:
+	call walk
+	pop ax
+	pop dx
+endp walkMenu
 proc randomGenerate
 	push bp
 	mov bp, sp
@@ -78,15 +100,15 @@ playerInput:
 	cmp al, 'a'
 	jne playerInput
 attack1:
-	;push offset randomNumber
-	;call randomGenerate
+	push offset randomNumber
+	call randomGenerate
 	push offset enemyCurrentHealth
 	push offset randomNumber
 	call attack
 	call resetScreen
 	call displayStats
 	cmp [enemyCurrentHealth], 0
-	ja playerInput
+	jg playerInput
 	pop ax
 	pop dx
 	ret
@@ -102,40 +124,19 @@ proc attack
 	mov bx, enemyHealth
 	mov si, randomNumberParm
 	mov ax, [si]
-	;cmp [bx], ax
-	;jl noHealthLeft
-	;sub [bx], al
-	;jmp finish
-;noHealthLeft:
-	mov [enemyCurrentHealth], 0
-;finish:
+	cmp [bx], al
+	jb noHealthLeft
+	sub [bx], al
+	jmp finish
+noHealthLeft:
+	mov [byte ptr bx], 0
+finish:
 	pop si
 	pop bx
 	pop ax
 	pop bp
 	ret 4
 endp attack
-proc walkMenu
-	push dx
-	push ax
-	mov dx, offset menuMsg1
-	mov ah, 9h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov ah, 07h
-	int 21h
-	cmp al, 'w'
-	je walk1
-	cmp al, 'x'
-	je exit
-	walk1:
-	call combat ;CHANGE LATER TO WALK
-	pop ax
-	pop dx
-endp walkMenu
 proc walk
 	push offset randomNumber
 	call randomGenerate
