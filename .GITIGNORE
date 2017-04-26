@@ -15,6 +15,7 @@
 *.obj
 *.ovl
 *.td
+*.map
 
 ### Windows ###
 # Windows thumbnail cache files
