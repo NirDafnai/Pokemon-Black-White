@@ -32,8 +32,27 @@ DATASEG
 	enemyPokemonLevel db 1
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
+	switchTurnMsg db 'Press any key to switch turns.$'
 	enemyMaxHealth db 1
+	turn db 0
 CODESEG
+proc switchTurn
+	turnVar equ [bp+2]
+	push bp
+	mov bp, sp
+	push bx
+	mov bx, turnVar
+	cmp [byte ptr bx], 0
+	jne switchToPlayerTurn
+	inc [byte ptr bx]
+	jmp finish3
+switchToPlayerTurn:
+	dec [byte ptr bx]
+finish3:
+	pop bx
+	pop bp
+	ret 2
+endp switchTurn
 proc walkMenu
 	push dx
 	push ax
@@ -81,11 +100,23 @@ proc randomGenerate
 	ret 2
 endp randomGenerate
 proc combat
+turnCheck:
 	push dx
 	push ax
 	call resetScreen
 	call generateEnemyStats
-playerInput:
+	mov ah, 09
+	mov dx, offset switchTurnMsg
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov ah, 07h
+	int 21h
+	cmp [turn], 0
+	jne enemyTurn
+playerTurn:
 	call resetScreen
 	call displayStats
 	; new line
@@ -98,8 +129,7 @@ playerInput:
 	mov ah, 07h
 	int 21h
 	cmp al, 'a'
-	jne playerInput
-attack1:
+	jne playerTurn
 	push offset randomNumber
 	call randomGenerate
 	push offset enemyCurrentHealth
@@ -107,22 +137,39 @@ attack1:
 	call attack
 	call resetScreen
 	call displayStats
+	call switchTurn
+	jmp check
+enemyTurn:
+	push offset randomNumber
+	call randomGenerate
+	push offset playerCurrentHealth
+	push offset randomNumber
+	call attack
+	call resetScreen
+	call displayStats
+	call switchTurn
+check:
 	cmp [enemyCurrentHealth], 0
-	jg playerInput
+	jg checkPlayerHealth
+	jmp finish2
+checkPlayerHealth:
+	cmp [playerCurrentHealth], 0
+	jg turnCheck
+finish2:
 	pop ax
 	pop dx
 	ret
 endp combat
 proc attack
-	randomNumberParm equ [bp+4]
-	enemyHealth equ [bp+6]
+	randomNumberVar equ [bp+4]
+	health equ [bp+6]
 	push bp
 	mov bp, sp
 	push ax
 	push bx
 	push si
-	mov bx, enemyHealth
-	mov si, randomNumberParm
+	mov bx, health
+	mov si, randomNumberVar
 	mov ax, [si]
 	cmp [bx], al
 	jb noHealthLeft
