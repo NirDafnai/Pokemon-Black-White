@@ -17,6 +17,7 @@
 *.td
 *.map
 *.bmp
+*.tr
 
 ### Windows ###
 # Windows thumbnail cache files
