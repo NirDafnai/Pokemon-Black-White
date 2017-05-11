@@ -14,7 +14,6 @@ DATASEG
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
 	menuMsg2 db 'Press a to attack$'
 	linefeed db 13, 10, "$"
-	randomNumber db 0
 	playerPokemonDamage db 1
 	playerPokemonName db 'Pikachu$'
 	playerPokemonLevel db 2
@@ -32,30 +31,11 @@ DATASEG
 	enemyPokemonLevel db 1
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
+	switchTurnMsg db 'Press any key to switch turns.$'
 	enemyMaxHealth db 1
+	turn db 0
 CODESEG
-proc walkMenu
-	push dx
-	push ax
-	mov dx, offset menuMsg1
-	mov ah, 9h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov ah, 07h
-	int 21h
-	cmp al, 'w'
-	je walk1
-	cmp al, 'x'
-	je exit
-	jne exit
-	walk1:
-	call walk
-	pop ax
-	pop dx
-endp walkMenu
+;push something to dedicate place for the random number in the stack and then call the procedure, pop to get the random number
 proc randomGenerate
 	push bp
 	mov bp, sp
@@ -70,22 +50,30 @@ proc randomGenerate
 	mov  cx, 10    
 	div  cx       ; now dx contains the remainder of the division - from 0 to 9
 	xor bx, bx
-	mov bx, [bp+4]
-	mov [bx], dx
+	mov [bp+4], dx
 	;mov [randomNumber], dl
 	pop dx
 	pop cx
 	pop bx
 	pop ax
 	pop bp
-	ret 2
+	ret
 endp randomGenerate
 proc combat
 	push dx
 	push ax
-	call resetScreen
 	call generateEnemyStats
-playerInput:
+	jmp playerTurn
+turnCheck:
+	call resetScreen
+	mov ah, 09
+	mov dx, offset switchTurnMsg
+	int 21h
+	mov ah, 01h
+	int 21h
+	cmp [turn], 0
+	jne enemyTurn
+playerTurn:
 	call resetScreen
 	call displayStats
 	; new line
@@ -93,59 +81,91 @@ playerInput:
 	mov dx, offset linefeed
 	int 21h
 	mov dx, offset menuMsg2
-	mov ah, 9h
+	mov ah, 09h
 	int 21h
 	mov ah, 07h
 	int 21h
 	cmp al, 'a'
-	jne playerInput
-attack1:
-	push offset randomNumber
-	call randomGenerate
+	jne playerTurn
+	push ax
+	call randomGenerate ;random number is in the stack segment
 	push offset enemyCurrentHealth
-	push offset randomNumber
 	call attack
 	call resetScreen
 	call displayStats
+	jmp check
+enemyTurn:
+	push ax
+	call randomGenerate
+	push offset playerCurrentHealth
+	call attack
+	call resetScreen
+	call displayStats
+check:
+	xor [byte ptr turn], 1 ;switch turn
 	cmp [enemyCurrentHealth], 0
-	jg playerInput
+	jg checkPlayerHealth
+	jmp finish2
+checkPlayerHealth:
+	cmp [playerCurrentHealth], 0
+	jg turnCheck
+finish2:
 	pop ax
 	pop dx
 	ret
 endp combat
 proc attack
-	randomNumberParm equ [bp+4]
-	enemyHealth equ [bp+6]
+	randomNumberVar equ [bp+6]
+	health equ [bp+4]
 	push bp
 	mov bp, sp
 	push ax
 	push bx
-	push si
-	mov bx, enemyHealth
-	mov si, randomNumberParm
-	mov ax, [si]
-	cmp [bx], al
+	mov bx, health
+	mov ax, randomNumberVar
+	cmp [byte ptr bx], al
 	jb noHealthLeft
 	sub [bx], al
 	jmp finish
 noHealthLeft:
 	mov [byte ptr bx], 0
 finish:
-	pop si
 	pop bx
 	pop ax
 	pop bp
 	ret 4
 endp attack
-proc walk
-	push offset randomNumber
+proc menu
+	push dx
+	push ax
+start1:
+	call resetScreen
+	mov dx, offset menuMsg1
+	mov ah, 9h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov ah, 07h
+	int 21h
+	cmp al, 'w'
+	je walk1
+	cmp al, 'x'
+	je exit
+	jne start1
+	walk1:
+	push ax
 	call randomGenerate
-	cmp [randomNumber], 4
-	jb noCombat
+	pop ax ;ax has the random number
+	cmp ax, 4 
+	jb start1
 	call combat
 noCombat:
+	pop ax
+	pop dx
 	ret
-endp walk
+endp menu
 proc displayStats
 	call playerPokemonStats
 	call enemyPokemonStats
@@ -153,29 +173,23 @@ proc displayStats
 endp displayStats
 proc resetScreen
 	push ax
-	mov ax, 13h
-	int 10h
-	mov ah, 0
-	mov al, 2
+	mov ax, 3
 	int 10h
 	pop ax
 	ret
 endp resetScreen
 proc generateEnemyStats
 	push ax
-	push dx
 	xor ax, ax
-	xor dx, dx
 	mov al, [playerPokemonLevel]
 	mov [enemyPokemonLevel], al
-	mov dl, [levelHealthMultiplier]
-	mul dl
+	mov ah, [levelHealthMultiplier]
+	mul ah
 	mov [enemyMaxHealth], al
 	mov [enemyCurrentHealth], al
-	pop dx
 	pop ax
 	ret
-endp
+endp generateEnemyStats
 proc playerPokemonStats
 	push dx
 	push ax
@@ -491,7 +505,8 @@ start:
 	mov ah, 0
 	mov al, 2
 	int 10h
-	call walkMenu
+	
+	call menu
 exit:
 	mov ax, 4c00h
 	int 21h
