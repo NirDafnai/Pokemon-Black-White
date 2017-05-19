@@ -105,6 +105,7 @@ retry:
 	int 21h
 	cmp al, 'a'
 	jne retry
+	push offset DMG
 	push ax
 	call randomGenerate ;random number is in the stack segment
 	push offset enemyCurrentHealth
@@ -126,6 +127,7 @@ retry:
 	int 21h
 	jmp check
 enemyTurn:
+	push offset DMG
 	push ax
 	call randomGenerate
 	push offset playerCurrentHealth
@@ -164,15 +166,17 @@ finish2:
 	ret 6
 endp combat
 proc attack
+	DMG3 equ [bp+8]
 	randomNumberVar equ [bp+6]
 	health equ [bp+4]
 	push bp
 	mov bp, sp
 	push ax
 	push bx
-	mov bx, health
 	mov ax, randomNumberVar
-	mov [byte ptr DMG], al
+	mov bx, DMG3
+	mov [byte ptr bx], al
+	mov bx, health
 	cmp [byte ptr bx], al
 	jb noHealthLeft
 	sub [bx], al
@@ -183,7 +187,7 @@ finish:
 	pop bx
 	pop ax
 	pop bp
-	ret 4
+	ret 6
 endp attack
 proc menu
 	push dx
