@@ -19,9 +19,8 @@ DATASEG
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
-	menuMsg2 db 'Press a to attack$'
+	menuMsg2 db 'Press a to attack or h to heal$'
 	menuMsg3 db 'Press any key to continue...$'
-	menuMsg4 db 'Press any key to switch turns...$'
 	linefeed db 13, 10, "$"
 	playerPokemonName db 'Pikachu$'
 	pokemonNameMessage db 'Your Pokemon: $'
@@ -32,10 +31,14 @@ DATASEG
 	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
-	switchTurnMsg db 'Press any key to switch turns.$'
 	playerDmgMSG db 'You inflicted: $'
 	enemyDmgMSG db 'The enemy inflicted: $'
 	DmgMSG db ' DMG$'
+	playerWinMSG db 'Player has won!$'
+	enemyWinMSG db 'Enemy has won!$'
+	playerHealMSG db 'You healed for: $'
+	HPMSG db ' HP$'
+
 			;end OUTPUT;
 	playerPokemonDamage db 1
 	playerEXP db 0
@@ -79,12 +82,16 @@ proc combat
 	push dx
 	push ax
 	push bx
+	push cx
+	push offset turn
+	push offset playerMaxHealth
+	push offset playerCurrentHealth
 	push offset enemyCurrentHealth
 	push offset enemyMaxHealth
 	push offset levelHealthMultiplier
 	push offset enemyPokemonLevel
 	push offset playerPokemonLevel
-	call generateEnemyStats
+	call generateStats
 jumpToTurn:
 	mov bx, turn01
 	cmp [byte ptr bx], 0
@@ -104,7 +111,18 @@ retry:
 	mov ah, 07h
 	int 21h
 	cmp al, 'a'
+	je attack1
+	cmp al, 'h'
+	je heal1
 	jne retry
+heal1:
+	push ax
+	call randomGenerate
+	push offset playerMaxHealth
+	push offset playerCurrentHealth
+	call heal
+	jmp afterHeal
+attack1:
 	push offset DMG
 	push ax
 	call randomGenerate ;random number is in the stack segment
@@ -118,10 +136,15 @@ retry:
 	push offset DMG
 	call displayPlayerDMG
 	mov ah, 09
+	jmp after
+afterHeal:
+	call resetScreen
+	call displayStats
+after:
+	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
-	mov ah, 09
-	mov dx, offset menuMsg4
+	mov dx, offset menuMsg3
 	int 21h
 	mov ah, 07h
 	int 21h
@@ -153,12 +176,49 @@ check:
 	mov bx, enemyHealth
 	cmp [byte ptr bx], 0
 	jg checkPlayerHealth
+	je playerWon
 	jmp finish2
 checkPlayerHealth:
 	mov bx, playerHealth
 	cmp [byte ptr bx], 0
 	jg jumpToTurn
+	je enemyWon
+playerWon:
+	mov ah, 09h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 0Ah
+	mov bh, 0
+	mov cx, 15
+	int 10h
+	mov dx, offset playerWinMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07h
+	int 21h
+	jmp finish2
+enemyWon:
+	mov ah, 09h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 04h
+	mov bh, 0
+	mov cx, 14
+	int 10h
+	mov dx, offset enemyWinMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07h
+	int 21h
+	jmp finish2
 finish2:
+	pop cx
 	pop bx
 	pop ax
 	pop dx
@@ -189,9 +249,35 @@ finish:
 	pop bp
 	ret 6
 endp attack
+proc heal
+	randomNumberVar equ [bp+8]
+	maxHealth equ [bp+6]
+	health equ [bp+4]
+	push bp
+	mov bp, sp
+	push bx
+	push ax
+	mov ax, randomNumberVar
+	mov bx, health
+	add [byte ptr bx], al
+	mov bx, maxHealth
+	mov al, [byte ptr bx]
+	mov bx, health
+	cmp [byte ptr bx], al
+	jae healToMax
+	jmp finish3
+healToMax:
+	mov [byte ptr bx], al
+finish3:
+	pop ax
+	pop bx
+	pop bp
+	ret 6
+endp heal
 proc menu
 	push dx
 	push ax
+beginning:
 	call resetScreen
 	mov dx, offset menuMsg1
 	mov ah, 9h
@@ -218,6 +304,7 @@ retry1:
 	push offset playerCurrentHealth
 	push offset enemyCurrentHealth
 	call combat
+	jmp beginning
 noCombat:
 	pop ax
 	pop dx
@@ -428,12 +515,15 @@ proc resetScreen
 	pop ax
 	ret
 endp resetScreen
-proc generateEnemyStats
+proc generateStats
 	pokemonLevel equ [bp+4]
 	enemyLevel equ [bp+6]
 	levelMultiplier equ [bp+8]
 	maxEnemyHealth equ [bp+10]
 	enemyCurrHealth equ [bp+12]
+	playerCurrHealth equ [bp+14]
+	maxPlayerHealth equ [bp+16]
+	turn02 equ [bp+18]
 	;
 	push bp
 	mov bp, sp
@@ -451,11 +541,18 @@ proc generateEnemyStats
 	mov [byte ptr bx], al
 	mov bx, enemyCurrHealth
 	mov [byte ptr bx], al
+	mov bx, maxPlayerHealth
+	xor ax, ax
+	mov al, [byte ptr bx]
+	mov bx, playerCurrHealth
+	mov [byte ptr bx], al
+	mov bx, turn02
+	mov [byte ptr bx], 0
 	pop bx
 	pop ax
 	pop bp
-	ret 10
-endp generateEnemyStats
+	ret 16
+endp generateStats
 proc displayPlayerDMG
 	DMG1 equ [bp+4]
 	push bp
@@ -463,6 +560,7 @@ proc displayPlayerDMG
 	push dx
 	push ax
 	push bx
+	push cx
 	mov ah, 09h
 	mov bl, 0Eh
 	mov bh, 0
@@ -479,6 +577,7 @@ proc displayPlayerDMG
 	mov ah, 09h
 	mov dx, offset DmgMSG
 	int 21h
+	pop cx
 	pop bx
 	pop ax
 	pop dx
@@ -492,6 +591,7 @@ proc displayEnemyDMG
 	push dx
 	push ax
 	push bx
+	push cx
 	mov ah, 09h
 	mov bl, 04h
 	mov bh, 0
@@ -508,6 +608,7 @@ proc displayEnemyDMG
 	mov ah, 09h
 	mov dx, offset DmgMSG
 	int 21h
+	pop cx
 	pop bx
 	pop ax
 	pop dx
