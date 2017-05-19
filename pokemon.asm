@@ -15,27 +15,35 @@ DATASEG
 	Header db 54 dup (0)
 	Palette db 256*4 dup (0)
 	ScrLine db 320 dup (0)
+			;OUTPUT;
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
 	menuMsg2 db 'Press a to attack$'
 	menuMsg3 db 'Press any key to continue...$'
+	menuMsg4 db 'Press any key to switch turns...$'
 	linefeed db 13, 10, "$"
-	playerPokemonDamage db 1
 	playerPokemonName db 'Pikachu$'
 	pokemonNameMessage db 'Your Pokemon: $'
 	playerHealthMessage db 'Pokemon health: $'
 	playerEXPMessage db 'Pokemon experience is: $'
 	playerLevelMessage db 'Pokemon level is: $'
-	playerEXP db 0
-	playerMaxEXP db 10
-	levelHealthMultiplier db 5
-	enemyPokemonDamage db 1
 	enemyPokemonName db 'Rattata$'
 	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
 	switchTurnMsg db 'Press any key to switch turns.$'
+	playerDmgMSG db 'You inflicted: $'
+	enemyDmgMSG db 'The enemy inflicted: $'
+	DmgMSG db ' DMG$'
+			;end OUTPUT;
+	playerPokemonDamage db 1
+	playerEXP db 0
+	playerMaxEXP db 10
+	levelHealthMultiplier db 5
+	enemyPokemonDamage db 1
+	DMG db 0
+	
 	turn db 0
 CODESEG
 ;push something to dedicate place for the random number in the stack and then call the procedure, pop to get the random number
@@ -106,8 +114,13 @@ retry:
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	push offset DMG
+	call displayPlayerDMG
 	mov ah, 09
-	mov dx, offset menuMsg3
+	mov dx, offset linefeed
+	int 21h
+	mov ah, 09
+	mov dx, offset menuMsg4
 	int 21h
 	mov ah, 07h
 	int 21h
@@ -119,6 +132,19 @@ enemyTurn:
 	call attack
 	call resetScreen
 	call displayStats
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	push offset DMG
+	call displayEnemyDMG
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov ah, 09
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07h
+	int 21h
 check:
 	mov bx, turn01
 	xor [byte ptr bx], 1
@@ -146,6 +172,7 @@ proc attack
 	push bx
 	mov bx, health
 	mov ax, randomNumberVar
+	mov [byte ptr DMG], al
 	cmp [byte ptr bx], al
 	jb noHealthLeft
 	sub [bx], al
@@ -425,6 +452,64 @@ proc generateEnemyStats
 	pop bp
 	ret 10
 endp generateEnemyStats
+proc displayPlayerDMG
+	DMG1 equ [bp+4]
+	push bp
+	mov bp,sp
+	push dx
+	push ax
+	push bx
+	mov ah, 09h
+	mov bl, 0Eh
+	mov bh, 0
+	mov cx, 20
+	int 10h
+	mov ah, 09h
+	mov dx, offset playerDmgMSG
+	int 21h
+	mov bx, DMG1
+	mov dl, [byte ptr bx]
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset DmgMSG
+	int 21h
+	pop bx
+	pop ax
+	pop dx
+	pop bp
+	ret 2
+endp displayPlayerDMG
+proc displayEnemyDMG
+	DMG2 equ [bp+4]
+	push bp
+	mov bp,sp
+	push dx
+	push ax
+	push bx
+	mov ah, 09h
+	mov bl, 04h
+	mov bh, 0
+	mov cx, 26
+	int 10h
+	mov ah, 09h
+	mov dx, offset enemyDmgMSG
+	int 21h
+	mov bx, DMG2
+	mov dl, [byte ptr bx]
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset DmgMSG
+	int 21h
+	pop bx
+	pop ax
+	pop dx
+	pop bp
+	ret 2
+endp displayEnemyDMG
 proc OpenFile
 	; Open file
 	mov ah, 3Dh
