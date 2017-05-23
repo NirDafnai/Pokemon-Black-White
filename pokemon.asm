@@ -38,7 +38,10 @@ DATASEG
 	enemyWinMSG db 'Enemy has won!$'
 	playerHealMSG db 'You healed for: $'
 	HPMSG db ' HP$'
-
+	spaces db '						    $'
+	spaces02 db '						    $'
+	lines db '------------------------------$'
+	lines02 db '----------------------------$'
 			;end OUTPUT;
 	playerPokemonDamage db 1
 	playerEXP db 0
@@ -46,6 +49,7 @@ DATASEG
 	levelHealthMultiplier db 5
 	enemyPokemonDamage db 1
 	DMG db 0
+	HP db 0
 	
 	turn db 0
 CODESEG
@@ -99,13 +103,14 @@ jumpToTurn:
 	jne enemyTurn
 playerTurn:
 	call resetScreen
+	mov dx, offset menuMsg2
+	mov ah, 09h
+	int 21h
+
 	call displayStats
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
-	int 21h
-	mov dx, offset menuMsg2
-	mov ah, 09h
 	int 21h
 retry:
 	mov ah, 07h
@@ -130,16 +135,55 @@ attack1:
 	call attack
 	call resetScreen
 	call displayStats
-	mov ah, 09
-	mov dx, offset linefeed
+	xor bx, bx
+	mov dl, 0
+	mov dh, 0
+	mov ah, 02h
+	int 10h
+;displays player's damage;
+	mov ah, 09h
+	mov bl, 0Eh
+	mov bh, 0
+	mov cx, 20
+	int 10h
+	mov ah, 09h
+	mov dx, offset playerDmgMSG
 	int 21h
-	push offset DMG
-	call displayPlayerDMG
+	mov dl, [DMG]
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset DmgMSG
+	int 21h
 	mov ah, 09
+;displays player's damage;
 	jmp after
 afterHeal:
 	call resetScreen
 	call displayStats
+	xor bx, bx
+	mov dl, 0
+	mov dh, 0
+	mov ah, 02h
+	int 10h
+;displays player's heal points;
+	mov ah, 09h
+	mov bl, 02h
+	mov bh, 0
+	mov cx, 20
+	int 10h
+	mov ah, 09h
+	mov dx, offset playerHealMSG
+	int 21h
+	mov dl, [HP]
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset HPMSG
+	int 21h
+;displays player's heal points;
 after:
 	mov ah, 09
 	mov dx, offset linefeed
@@ -157,11 +201,29 @@ enemyTurn:
 	call attack
 	call resetScreen
 	call displayStats
-	mov ah, 09
-	mov dx, offset linefeed
+	xor bx, bx
+	mov dl, 0
+	mov dh, 0
+	mov ah, 02h
+	int 10h
+;displays enemy's damage;
+	mov ah, 09h
+	mov bl, 04h
+	mov bh, 0
+	mov cx, 26
+	int 10h
+	
+	mov ah, 09h
+	mov dx, offset enemyDmgMSG
 	int 21h
-	push offset DMG
-	call displayEnemyDMG
+	mov dl, [DMG]
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset DmgMSG
+	int 21h
+;displays enemy's damage;
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
@@ -184,9 +246,14 @@ checkPlayerHealth:
 	jg jumpToTurn
 	je enemyWon
 playerWon:
+	call resetScreen
+	call displayStats
+	mov ah, 09
+	mov dl, 0
+	mov dh, 0
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
-	mov dx, offset linefeed
-	int 21h
 	mov bl, 0Ah
 	mov bh, 0
 	mov cx, 15
@@ -201,9 +268,14 @@ playerWon:
 	int 21h
 	jmp finish2
 enemyWon:
+	call resetScreen
+	call displayStats
+	mov ah, 09
+	mov dl, 0
+	mov dh, 0
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
-	mov dx, offset linefeed
-	int 21h
 	mov bl, 04h
 	mov bh, 0
 	mov cx, 14
@@ -258,6 +330,7 @@ proc heal
 	push bx
 	push ax
 	mov ax, randomNumberVar
+	mov [HP], al
 	mov bx, health
 	add [byte ptr bx], al
 	mov bx, maxHealth
@@ -313,7 +386,143 @@ endp menu
 proc displayStats
 	push dx
 	push ax
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset spaces
+	int 21h
+	mov ah, 09h
+	mov bl, 0Ch
+	mov bh, 0
+	mov cx, 28
+	int 10h
+	mov dx, offset lines02
+	int 21h
+	mov dx, offset spaces
+	int 21h
+	mov ah, 09h
+	mov bl, 0Ch
+	mov bh, 0
+	mov cx, 1
+	int 10h
+	mov ah, 02
+	mov dx, '|'
+	int 21h
+	mov ah, 09
+	mov dx, offset enemyPokemonNameMsg
+	mov ah, 9h
+	int 21h
+	mov dx, offset enemyPokemonName
+	mov ah, 9h
+	int 21h
+	mov dx, offset spaces
+	int 21h
+	mov ah, 09h
+	mov bl, 0Ch
+	mov bh, 0
+	mov cx, 1
+	int 10h
+	mov ah, 02
+	mov dx, '|'
+	int 21h
+	mov ah, 09
+	mov dx, offset enemyPokemonLvlMsg
+	mov ah, 9h
+	int 21h
+	xor ax, ax
+	mov al, [enemyPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyPokemonLevel]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	; new line
+	mov ah, 09
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset spaces
+	int 21h
+	mov ah, 09h
+	mov bl, 0Ch
+	mov bh, 0
+	mov cx, 1
+	int 10h
+	mov ah, 02
+	mov dx, '|'
+	int 21h
+	mov ah, 09
+	mov dx, offset enemyPokemonHealthMsg
+	mov ah, 9h
+	int 21h
+	xor ax, ax
+	mov al, [enemyCurrentHealth]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyCurrentHealth]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov dl, '/'
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyMaxHealth]
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+	xor ax, ax
+	mov al, [enemyMaxHealth]
+	mov dl, 10
+	div dl
+	mov dl, ah
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ah, 09h
+	mov dx, offset spaces02
+	int 21h
+	mov ah, 09h
+	mov bl, 0Ch
+	mov bh, 0
+	mov cx, 28
+	int 10h
+	mov dx, offset lines02
+	int 21h
 	;player pokemon stats
+		xor bx, bx
+	mov dl, 0
+	mov dh, 17
+	mov ah, 02h
+	int 10h
+	mov ah, 09h
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 31
+	int 10h
+	mov dx, offset lines
+	int 21h
+	mov dx, offset linefeed
+	int 21h
 	mov dx, offset pokemonNameMessage
 	mov ah, 9h
 	int 21h
@@ -385,6 +594,7 @@ proc displayStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
+	
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
@@ -427,82 +637,86 @@ proc displayStats
 	add dl, '0'
 	mov ah, 02h
 	int 21h
+	mov ah, 09h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 31
+	int 10h
+	mov ah, 09
+	mov dx, offset lines
+	int 21h
+	xor bx, bx
+	mov dl, 30
+	mov dh, 22
+	mov ah, 02h
+	int 10h
+	mov ah, 02h
+	mov dl, '|'
+	int 21h
+	mov ah, 09
+	mov dl, 30
+	mov dh, 21
+	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
+	mov al, '|'
+	int 10h
+	mov ah, 09
+	mov dl, 30
+	mov dh, 20
+	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
+	mov al, '|'
+	int 10h
+	mov dl, 30
+	mov dh, 19
+	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
+	mov al, '|'
+	int 10h
+	mov ah, 09
+	mov dl, 30
+	mov dh, 18
+	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
+	mov al, '|'
+	int 10h
+	mov ah, 09
+	mov dl, 30
+	mov dh, 17
+	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
+	mov al, '|'
+	int 10h
+	mov ah, 09
+	mov dl, 00
+	mov dh, 00
+	mov ah, 02h
+	int 10h
 	;end player pokemon stats
 	;enemy pokemon stats
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov dx, offset enemyPokemonNameMsg
-	mov ah, 9h
-	int 21h
-	mov dx, offset enemyPokemonName
-	mov ah, 9h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov dx, offset enemyPokemonLvlMsg
-	mov ah, 9h
-	int 21h
-	xor ax, ax
-	mov al, [enemyPokemonLevel]
-	mov dl, 10
-	div dl
-	mov dl, al
-	add dl, '0' 
-	mov ah, 02h
-	int 21h
-	xor ax, ax
-	mov al, [enemyPokemonLevel]
-	mov dl, 10
-	div dl
-	mov dl, ah
-	add dl, '0'
-	mov ah, 02h
-	int 21h
-	; new line
-	mov ah, 09
-	mov dx, offset linefeed
-	int 21h
-	mov dx, offset enemyPokemonHealthMsg
-	mov ah, 9h
-	int 21h
-	xor ax, ax
-	mov al, [enemyCurrentHealth]
-	mov dl, 10
-	div dl
-	mov dl, al
-	add dl, '0' 
-	mov ah, 02h
-	int 21h
-	xor ax, ax
-	mov al, [enemyCurrentHealth]
-	mov dl, 10
-	div dl
-	mov dl, ah
-	add dl, '0'
-	mov ah, 02h
-	int 21h
-	mov dl, '/'
-	mov ah, 02h
-	int 21h
-	xor ax, ax
-	mov al, [enemyMaxHealth]
-	mov dl, 10
-	div dl
-	mov dl, al
-	add dl, '0' 
-	mov ah, 02h
-	int 21h
-	xor ax, ax
-	mov al, [enemyMaxHealth]
-	mov dl, 10
-	div dl
-	mov dl, ah
-	add dl, '0'
-	mov ah, 02h
-	int 21h
+
 	;end enemy pokemon stats
 	pop ax
 	pop dx
@@ -553,68 +767,6 @@ proc generateStats
 	pop bp
 	ret 16
 endp generateStats
-proc displayPlayerDMG
-	DMG1 equ [bp+4]
-	push bp
-	mov bp,sp
-	push dx
-	push ax
-	push bx
-	push cx
-	mov ah, 09h
-	mov bl, 0Eh
-	mov bh, 0
-	mov cx, 20
-	int 10h
-	mov ah, 09h
-	mov dx, offset playerDmgMSG
-	int 21h
-	mov bx, DMG1
-	mov dl, [byte ptr bx]
-	add dl, '0'
-	mov ah, 02h
-	int 21h
-	mov ah, 09h
-	mov dx, offset DmgMSG
-	int 21h
-	pop cx
-	pop bx
-	pop ax
-	pop dx
-	pop bp
-	ret 2
-endp displayPlayerDMG
-proc displayEnemyDMG
-	DMG2 equ [bp+4]
-	push bp
-	mov bp,sp
-	push dx
-	push ax
-	push bx
-	push cx
-	mov ah, 09h
-	mov bl, 04h
-	mov bh, 0
-	mov cx, 26
-	int 10h
-	mov ah, 09h
-	mov dx, offset enemyDmgMSG
-	int 21h
-	mov bx, DMG2
-	mov dl, [byte ptr bx]
-	add dl, '0'
-	mov ah, 02h
-	int 21h
-	mov ah, 09h
-	mov dx, offset DmgMSG
-	int 21h
-	pop cx
-	pop bx
-	pop ax
-	pop dx
-	pop bp
-	ret 2
-endp displayEnemyDMG
 proc OpenFile
 	; Open file
 	mov ah, 3Dh
