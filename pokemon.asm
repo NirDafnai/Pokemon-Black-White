@@ -9,6 +9,7 @@ DATASEG
 	enemyPokemonLevel db 1
 	PlayerMaxHealth db 5
 	enemyMaxHealth db 5
+	enemyPokemonID db 1
 			;end stats;
 	filename db 'test.bmp',0
 	filehandle dw ?
@@ -19,15 +20,22 @@ DATASEG
 	ErrorMsg db 'Error', 13, 10,'$'
 	combatMsg db 'Combat has begun$'
 	menuMsg1 db 'Hello Player, press w to walk, and x to exit$'
-	menuMsg2 db 'Press a to attack or h to heal$'
+	menuMsg2 db 'Use ^ arrow key to navigate up, use v arrow key to navigate down$'
 	menuMsg3 db 'Press any key to continue...$'
+	attackMSG db '   Attack$'
+	healMSG db '   Heal$'
+	runMSG db '   Run$'
 	linefeed db 13, 10, "$"
 	playerPokemonName db 'Pikachu$'
 	pokemonNameMessage db 'Your Pokemon: $'
 	playerHealthMessage db 'Pokemon health: $'
 	playerEXPMessage db 'Pokemon experience is: $'
 	playerLevelMessage db 'Pokemon level is: $'
-	enemyPokemonName db 'Rattata$'
+	enemyPokemonName db 'AAAAAAAA$'
+	enemyPokemonName1 db 'Rattata$'
+	enemyPokemonName2 db 'Magikarp$'
+	enemyPokemonName3 db 'Zubat$'
+	enemyPokemonName4 db 'Raticate$'
 	enemyPokemonNameMsg db 'Enemy Pokemon Name: $'
 	enemyPokemonLvlMsg db 'Enemy Pokemon Level: $'
 	enemyPokemonHealthMsg db 'Enemy Pokemon health: $'
@@ -41,10 +49,12 @@ DATASEG
 	levelUpMSG db 'You leveled up!$'
 	EXPMSG db ' EXP$'
 	HPMSG db ' HP$'
-	spaces db '						    $'
+	spaces db '						  $'
 	spaces02 db '						    $'
-	lines db '------------------------------$'
-	lines02 db '----------------------------$'
+	lines db '--------------------------------$'
+	lines02 db '|-------------------------------$'
+	runFailMSG db 'You stumbled over a rock and broke your nose, ouch!$'
+	runSuccessMSG db 'You were able to run away from the duel!$'
 			;end OUTPUT;
 	didPlayerLevelUp db 0
 	playerPokemonDamage db 1
@@ -65,15 +75,23 @@ proc randomGenerate
 	push cx
 	push dx
 regenerate:
-	mov ah, 00h  ; interrupts to get system time        
-	int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
-	mov  ax, dx
-	xor  dx, dx
-	mov  cx, 10    
-	div  cx       ; now dx contains the remainder of the division - from 0 to 9
-	cmp dx, 0 ; if a 0 got generated, regenerate a random number.
-	je regenerate
-	xor bx, bx
+	mov ah, 02Ch
+	int 21h
+	xor ax, ax
+	mov al, dl
+	mov dl, 10
+	div dl
+	xor dx, dx
+	mov dl, ah
+	;mov ah, 00h  ; interrupts to get system time        
+	;int 1Ah      ; CX:DX now hold number of clock ticks since midnight      
+	;mov  ax, dx
+	;xor  dx, dx
+	;mov  cx, 10    
+	;div  cx       ; now dx contains the remainder of the division - from 0 to 9
+	;cmp dx, 0 ; if a 0 got generated, regenerate a random number.
+	;je regenerate
+	;xor bx, bx
 	mov [bp+4], dx
 	pop dx
 	pop cx
@@ -95,6 +113,8 @@ proc combat
 	push bx
 	push cx
 	push si
+	push di
+	push offset enemyPokemonID
 	push offset turn
 	push offset playerMaxHealth
 	push offset playerCurrentHealth
@@ -110,22 +130,281 @@ jumpToTurn:
 	jne enemyTurn
 playerTurn:
 	call resetScreen
+	mov ah, 09
 	mov dx, offset menuMsg2
-	mov ah, 09h
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 0Eh
+	mov bh, 0
+	mov cx, 9
+	int 10h
+	mov dx, offset attackMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 02h
+	mov bh, 0
+	mov cx, 7
+	int 10h
+	mov dx, offset healMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov bl, 0Bh
+	mov bh, 0
+	mov cx, 6
+	int 10h
+	mov dx, offset runMSG
 	int 21h
 	call displayStats
 	; new line
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	mov si, 1
+	jmp pointAttack
 retry:
-	mov ah, 07h
-	int 21h
-	cmp al, 'a'
-	je attack1
-	cmp al, 'h'
-	je heal1
+	mov ah, 00h
+	int 16h
+	cmp ah, 050h
+	je arrowDown
+	cmp ah, 048h
+	je arrowUp
+	cmp ah, 01Ch
+	je isEnter
 	jne retry
+arrowDown:
+	cmp si, 3
+	je reset
+	inc si
+	jmp checkPlace
+arrowUp:
+	cmp si, 1
+	je reset2
+	dec si
+	jmp checkPlace
+isEnter:
+	je execute
+reset:
+	mov si, 1
+	jmp checkPlace
+reset2:
+	mov si, 3
+	jmp checkPlace
+checkPlace:
+	cmp si, 1
+	je pointAttack
+	cmp si, 2
+	je pointHeal
+	cmp si, 3
+	je pointRun
+execute:
+	cmp si, 1
+	je attack1
+	cmp si, 2
+	je heal1
+	cmp si, 3
+	je run
+pointAttack:
+	xor bx, bx
+;clears arrows
+	mov ah, 02
+	mov dl, 00
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 00
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+;
+	mov ah, 02
+	mov dl, 00
+	mov dh, 01
+	int 10h
+	mov ah, 02
+	mov dl, '-'
+	int 21h
+	mov dl, '-'
+	int 21h
+	mov dl, '>'
+	int 21h
+	mov dl, 0
+	mov dh, 04
+	int 10h
+	jmp retry
+pointHeal:
+;clears arrows
+	mov ah, 02
+	mov dl, 00
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 00
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 03
+	int 10h
+	mov dl, 20h
+	int 21h
+;
+	xor bx, bx
+	mov ah, 02
+	mov dl, 00
+	mov dh, 02
+	int 10h
+	mov ah, 02
+	mov dl, '-'
+	int 21h
+	mov dl, '-'
+	int 21h
+	mov dl, '>'
+	int 21h
+	mov dl, 0
+	mov dh, 04
+	int 10h
+	jmp retry
+pointRun:
+;clears arrows
+	mov ah, 02
+	mov dl, 00
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 01
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 00
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 01
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+	mov ah, 02
+	mov dl, 02
+	mov dh, 02
+	int 10h
+	mov dl, 20h
+	int 21h
+;
+	xor bx, bx
+	mov ah, 02
+	mov dl, 00
+	mov dh, 03
+	int 10h
+	mov ah, 02
+	mov dl, '-'
+	int 21h
+	mov dl, '-'
+	int 21h
+	mov dl, '>'
+	int 21h
+	mov dl, 0
+	mov dh, 04
+	int 10h
+	jmp retry
+run:
+	push ax
+	call randomGenerate
+	pop ax
+	cmp ax, 6
+	jb fail
+success:
+	call resetScreen
+	call displayStats
+	mov ah, 09
+	mov dx, offset runSuccessMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07
+	int 21h
+	jmp finish2
+fail:
+	call resetScreen
+	call displayStats
+	mov ah, 09
+	mov dx, offset runFailMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07
+	int 21h
+	mov bx, turn01
+	xor [byte ptr bx], 1
+	jmp enemyTurn
 heal1:
 	push ax
 	call randomGenerate
@@ -288,10 +567,9 @@ noLevelUp:
 	xor ax, ax
 	call resetScreen
 	call displayStats
-	mov ah, 09
+	mov ah, 02h
 	mov dl, 0
 	mov dh, 0
-	mov ah, 02h
 	int 10h
 	mov ah, 09h
 	mov bl, 0Ah
@@ -373,6 +651,7 @@ enemyWon:
 	int 21h
 	jmp finish2
 finish2:
+	pop di
 	pop si
 	pop cx
 	pop bx
@@ -473,17 +752,24 @@ proc displayStats
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
-	mov dx, offset spaces
-	int 21h
+	xor bx, bx
+	mov ah, 09
+	mov dl, 48
+	mov dh, 4
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
 	mov bl, 0Ch
 	mov bh, 0
-	mov cx, 28
+	mov cx, 32
 	int 10h
 	mov dx, offset lines02
 	int 21h
-	mov dx, offset spaces
-	int 21h
+	mov ah, 09
+	mov dl, 48
+	mov dh, 5
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
 	mov bl, 0Ch
 	mov bh, 0
@@ -491,16 +777,43 @@ proc displayStats
 	int 10h
 	mov ah, 02
 	mov dx, '|'
+	int 21h
+	mov dx, 20h
 	int 21h
 	mov ah, 09
 	mov dx, offset enemyPokemonNameMsg
 	mov ah, 9h
 	int 21h
-	mov dx, offset enemyPokemonName
-	mov ah, 9h
+	cmp [enemyPokemonID], 1
+	je displayRatatta
+	cmp [enemyPokemonID], 2
+	je displayMagikarp
+	cmp [enemyPokemonID], 3
+	je displayZubat
+	cmp [enemyPokemonID], 4
+	je displayRaticate
+displayRatatta:
+	mov dx, offset enemyPokemonName1
 	int 21h
-	mov dx, offset spaces
+	jmp finish5
+displayMagikarp:
+	mov dx, offset enemyPokemonName2
 	int 21h
+	jmp finish5
+displayZubat:
+	mov dx, offset enemyPokemonName3
+	int 21h
+	jmp finish5
+displayRaticate:
+	mov dx, offset enemyPokemonName4
+	int 21h
+	jmp finish5
+finish5:
+	mov ah, 09
+	mov dl, 48
+	mov dh, 6
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
 	mov bl, 0Ch
 	mov bh, 0
@@ -508,6 +821,8 @@ proc displayStats
 	int 10h
 	mov ah, 02
 	mov dx, '|'
+	int 21h
+	mov dx, 20h
 	int 21h
 	mov ah, 09
 	mov dx, offset enemyPokemonLvlMsg
@@ -517,14 +832,18 @@ proc displayStats
 	mov al, [enemyPokemonLevel]
 	mov dl, 10
 	div dl
+	cmp al, 0
+	je skip1
 	mov dl, al
 	add dl, '0' 
 	mov ah, 02h
 	int 21h
+skip1:
 	xor ax, ax
 	mov al, [enemyPokemonLevel]
 	mov dl, 10
 	div dl
+	cmp al, 0
 	mov dl, ah
 	add dl, '0'
 	mov ah, 02h
@@ -533,8 +852,11 @@ proc displayStats
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
-	mov dx, offset spaces
-	int 21h
+	mov ah, 09
+	mov dl, 48
+	mov dh, 7
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
 	mov bl, 0Ch
 	mov bh, 0
@@ -542,6 +864,8 @@ proc displayStats
 	int 10h
 	mov ah, 02
 	mov dx, '|'
+	int 21h
+	mov dx, 20h
 	int 21h
 	mov ah, 09
 	mov dx, offset enemyPokemonHealthMsg
@@ -583,12 +907,15 @@ proc displayStats
 	mov ah, 02h
 	int 21h
 	mov ah, 09h
-	mov dx, offset spaces02
-	int 21h
+	mov ah, 09
+	mov dl, 48
+	mov dh, 8
+	mov ah, 02h
+	int 10h
 	mov ah, 09h
 	mov bl, 0Ch
 	mov bh, 0
-	mov cx, 28
+	mov cx, 32
 	int 10h
 	mov dx, offset lines02
 	int 21h
@@ -607,6 +934,9 @@ proc displayStats
 	int 21h
 	mov dx, offset linefeed
 	int 21h
+	mov ah, 02
+	mov dl, 20h
+	int 21h
 	mov dx, offset pokemonNameMessage
 	mov ah, 9h
 	int 21h
@@ -617,6 +947,10 @@ proc displayStats
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	mov ah, 02
+	mov dl, 20h
+	int 21h
+	mov ah, 09
 	mov dx, offset playerLevelMessage
 	mov ah, 9h
 	int 21h
@@ -624,10 +958,13 @@ proc displayStats
 	mov al, [playerPokemonLevel]
 	mov dl, 10
 	div dl
+	cmp al, 0
+	je skip2
 	mov dl, al
 	add dl, '0' 
 	mov ah, 02h
 	int 21h
+skip2:
 	xor ax, ax
 	mov al, [playerPokemonLevel]
 	mov dl, 10
@@ -640,6 +977,10 @@ proc displayStats
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	mov ah, 02
+	mov dl, 20h
+	int 21h
+	mov ah, 09
 	mov dx, offset playerHealthMessage
 	mov ah, 9h
 	int 21h
@@ -683,14 +1024,34 @@ proc displayStats
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	mov ah, 02
+	mov dl, 20h
+	int 21h
+	mov ah, 09
 	mov dx, offset playerEXPMessage
 	mov ah, 9h
 	int 21h
 	xor ax, ax
 	mov al, [playerEXP]
+	mov dl, 100
+	div dl
+	cmp al, 0
+	je skip3
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+skip3:
+	xor ax, ax
+	mov al, [playerEXP]
 	mov dl, 10
 	div dl
 	mov dl, al
+	xor ax, ax
+	mov al, dl
+	mov dl, 10
+	div dl
+	mov dl, ah
 	add dl, '0' 
 	mov ah, 02h
 	int 21h
@@ -707,9 +1068,25 @@ proc displayStats
 	int 21h
 	xor ax, ax
 	mov al, [playerMaxEXP]
+	mov dl, 100
+	div dl
+	cmp al, 0
+	je skip4
+	mov dl, al
+	add dl, '0' 
+	mov ah, 02h
+	int 21h
+skip4:
+	xor ax, ax
+	mov al, [playerMaxEXP]
 	mov dl, 10
 	div dl
 	mov dl, al
+	xor ax, ax
+	mov al, dl
+	mov dl, 10
+	div dl
+	mov dl, ah
 	add dl, '0' 
 	mov ah, 02h
 	int 21h
@@ -732,15 +1109,20 @@ proc displayStats
 	mov dx, offset lines
 	int 21h
 	xor bx, bx
-	mov dl, 30
+	mov dl, 31
 	mov dh, 22
 	mov ah, 02h
+	int 10h
+	mov ah,9
+	mov bl, 09h
+	mov bh, 0
+	mov cx, 1
 	int 10h
 	mov ah, 02h
 	mov dl, '|'
 	int 21h
 	mov ah, 09
-	mov dl, 30
+	mov dl, 31
 	mov dh, 21
 	mov ah, 02h
 	int 10h
@@ -751,7 +1133,7 @@ proc displayStats
 	mov al, '|'
 	int 10h
 	mov ah, 09
-	mov dl, 30
+	mov dl, 31
 	mov dh, 20
 	mov ah, 02h
 	int 10h
@@ -761,7 +1143,7 @@ proc displayStats
 	mov cx, 1
 	mov al, '|'
 	int 10h
-	mov dl, 30
+	mov dl, 31
 	mov dh, 19
 	mov ah, 02h
 	int 10h
@@ -772,7 +1154,7 @@ proc displayStats
 	mov al, '|'
 	int 10h
 	mov ah, 09
-	mov dl, 30
+	mov dl, 31
 	mov dh, 18
 	mov ah, 02h
 	int 10h
@@ -783,7 +1165,7 @@ proc displayStats
 	mov al, '|'
 	int 10h
 	mov ah, 09
-	mov dl, 30
+	mov dl, 31
 	mov dh, 17
 	mov ah, 02h
 	int 10h
@@ -793,7 +1175,6 @@ proc displayStats
 	mov cx, 1
 	mov al, '|'
 	int 10h
-	mov ah, 09
 	mov dl, 00
 	mov dh, 00
 	mov ah, 02h
@@ -823,11 +1204,23 @@ proc generateStats
 	playerCurrHealth equ [bp+12]
 	maxPlayerHealth equ [bp+14]
 	turn02 equ [bp+16]
+	pokemonID equ [bp+18]
 	;
 	push bp
 	mov bp, sp
 	push ax
 	push bx
+	;generate enemy pokemon ID
+	mov bx, pokemonID
+tryAgain:
+	push ax
+	call randomGenerate
+	pop ax
+	cmp ax, 4
+	ja tryAgain
+	cmp ax, 0
+	je tryAgain
+	mov [byte ptr bx], al
 	xor ax, ax
 	mov bx, pokemonLevel
 	mov al, [byte ptr bx]
@@ -849,7 +1242,7 @@ proc generateStats
 	pop bx
 	pop ax
 	pop bp
-	ret 14
+	ret 16
 endp generateStats
 proc OpenFile
 	; Open file
@@ -968,7 +1361,12 @@ start:
 	mov al, 2
 	int 10h
 
-
+	;push offset playerMaxEXP
+	;push offset playerEXP
+	;push offset turn
+	;push offset playerCurrentHealth
+	;push offset enemyCurrentHealth
+	;call combat
 	call menu
 exit:
 	mov ax, 4c00h
