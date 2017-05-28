@@ -1397,6 +1397,7 @@ proc displayStats
 	mov dh, 4
 	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 0Ch
 	mov bh, 0
 	mov cx, 32
@@ -1407,6 +1408,7 @@ proc displayStats
 	mov dh, 5
 	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 0Ch
 	mov bh, 0
 	mov cx, 1
@@ -1445,11 +1447,11 @@ displayRaticate:
 	int 21h
 	jmp finish5
 finish5:
-	mov ah, 09
+	mov ah, 02h
 	mov dl, 48
 	mov dh, 6
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 0Ch
 	mov bh, 0
 	mov cx, 1
@@ -1461,7 +1463,6 @@ finish5:
 	int 21h
 	mov ah, 09
 	mov dx, offset enemyPokemonLvlMsg
-	mov ah, 9h
 	int 21h
 	xor ax, ax
 	mov al, [enemyPokemonLevel]
@@ -1487,10 +1488,11 @@ skip1:
 	mov ah, 09
 	mov dx, offset linefeed
 	int 21h
+	mov ah, 02h
 	mov dl, 48
 	mov dh, 7
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 0Ch
 	mov bh, 0
 	mov cx, 1
@@ -1766,15 +1768,16 @@ skip4:
 	mov dx, offset lines
 	int 21h
 	xor bx, bx
+	mov ah, 02h
 	mov dl, 31
 	mov dh, 23
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
 	int 10h
-	mov ah, 02h
+	mov ah, 02
 	mov dl, '|'
 	int 21h
 	mov ah, 02h
@@ -1786,56 +1789,69 @@ skip4:
 	mov bh, 0
 	mov cx, 1
 	int 10h
-	mov ah, 02h
+	mov ah, 02
 	mov dl, '|'
 	int 21h
-	mov ah, 09
+	mov ah, 02h
 	mov dl, 31
 	mov dh, 21
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
-	mov al, '|'
 	int 10h
+	mov ah, 02
+	mov dl, '|'
+	int 21h
+	mov ah, 02h
 	mov dl, 31
 	mov dh, 20
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
-	mov al, '|'
 	int 10h
+	mov ah, 02
+	mov dl, '|'
+	int 21h
 	mov ah, 02h
 	mov dl, 31
 	mov dh, 19
 	int 10h
-	mov ah,9
+	mov ah, 09h
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
-	mov al, '|'
 	int 10h
+	mov ah, 02
+	mov dl, '|'
+	int 21h
+	mov ah, 02h
 	mov dl, 31
 	mov dh, 18
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
-	mov al, '|'
 	int 10h
+	mov ah, 02
+	mov dl, '|'
+	int 21h
+	mov ah, 02h
 	mov dl, 31
 	mov dh, 17
-	mov ah, 02h
 	int 10h
+	mov ah, 09
 	mov bl, 09h
 	mov bh, 0
 	mov cx, 1
-	mov al, '|'
 	int 10h
+	mov ah, 02
+	mov dl, '|'
+	int 21h
 	mov ah, 02h
 	mov dl, 00
 	mov dh, 00
