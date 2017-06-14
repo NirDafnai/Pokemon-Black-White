@@ -19,6 +19,7 @@ DATASEG
 	Palette db 256*4 dup (0)
 	ScrLine db 320 dup (0)
 			;OUTPUT;
+	pokemonMaxHealthMSG db 'Your pokemon already has max health, dont waste your money$'
 	earnCoinMSG db 'Coins earned: $'
 	coinMSG db 'Your coins: $'
 	pokemonHealMSG db 'Your pokemon is fully healed.$'
@@ -94,27 +95,31 @@ CODESEG
 ;output: random number in dedicated place in the stack
 proc randomGenerate
 ;push something to dedicate place for the random number in the stack and then call the procedure, pop to get the random number
+	maxRandomValue equ [bp+4]
 	push bp
 	mov bp, sp
 	push ax
 	push bx
 	push cx
 	push dx
+regenerate:
 	mov ah, 02Ch ;puts in dl 1/100 seconds
 	int 21h
 	xor ax, ax
 	mov al, dl
-	mov dl, 10
+	mov dl, maxRandomValue
 	div dl ;ah holds the remainder, our random number.
+	cmp ah, 0
+	je regenerate
 	xor dx, dx
 	mov dl, ah
-	mov [bp+4], dx
+	mov [bp+6], dx
 	pop dx
 	pop cx
 	pop bx
 	pop ax
 	pop bp
-	ret
+	ret 2
 endp randomGenerate
 ;this procedure is the main procedure of the game, it manages the game and it includes most of the combat system, like turns, most of the functions like shock, run, leveling up and such. 
 ;input: coin amount, potion amount, player's maximum health, the amount of times the player can shock, player's maximum experience, player's current experience, turn(0 or 1), player's current health, enemy's current health
@@ -431,6 +436,7 @@ continue:
 	jmp playerTurn
 run:
 	push ax
+	push 10
 	call randomGenerate
 	pop ax
 	cmp ax, 6
@@ -482,16 +488,27 @@ noPotionsLeft:
 	jmp playerTurn
 continue2:
 	push ax
+	xor bx, bx
+	mov bl, [playerPokemonLevel]
+	shl bl, 1
+	add bl, 2
+	push bx
 	call randomGenerate
 	pop si
 	push si
 	push offset playerMaxHealth
 	push offset playerCurrentHealth
 	call heal
+	mov bx, _healthPotions1
 	sub [byte ptr bx], 1
 	jmp afterHeal
 attack1:
 	push ax
+	xor bx, bx
+	mov bl, [playerPokemonLevel]
+	shl bl, 1
+	inc bl
+	push bx
 	call randomGenerate ;random number is in the stack segment
 	pop si
 	push si
@@ -507,11 +524,21 @@ attack1:
 	mov ah, 09h
 	mov bl, 0Eh
 	mov bh, 0
-	mov cx, 20
+	mov cx, 21
 	int 10h
 	mov dx, offset playerDmgMSG
 	int 21h
-	mov dx, si
+	mov ax, si
+	mov dl, 10
+	div dl
+	mov dl, al
+	add dl, '0'
+	mov ah, 02h
+	int 21h
+	mov ax, si
+	mov dl, 10
+	div dl
+	mov dl, ah
 	add dl, '0'
 	mov ah, 02h
 	int 21h
@@ -554,6 +581,11 @@ after:
 	jmp check
 enemyTurn:
 	push ax
+	xor bx, bx
+	mov bl, [enemyPokemonLevel]
+	shl bl, 1
+	inc bl
+	push bx
 	call randomGenerate
 	pop si
 	push si
@@ -612,6 +644,7 @@ checkPlayerHealth:
 playerWon:
 ;exp;
 	push ax
+	push 10
 	call randomGenerate
 	pop si
 	mov ax, si
@@ -701,6 +734,7 @@ noLevelUp:
 	mov dx, offset earnCoinMSG 
 	int 21h
 	push ax
+	push 10
 	call randomGenerate
 	pop ax
 	mov si, ax
@@ -1055,6 +1089,24 @@ checkHealPokemon:
 	int 21h
 	jmp beginning2
 healPokemon:
+	mov bx, _playerMaxHealth2
+	xor ax, ax
+	mov al, [bx]
+	mov bx, _playerHealth2
+	cmp [byte ptr bx], al
+	jne continue3
+	call resetScreen
+	mov ah, 09
+	mov dx, offset pokemonMaxHealthMSG
+	int 21h
+	mov dx, offset linefeed
+	int 21h
+	mov dx, offset menuMsg3
+	int 21h
+	mov ah, 07
+	int 21h
+	jmp beginning2
+continue3:
 	sub [byte ptr bx], 5
 	xor ax, ax
 	mov bx, _playerMaxHealth2
@@ -1896,6 +1948,7 @@ proc generateStats
 	mov bx, pokemonID
 tryAgain:
 	push ax
+	push 10
 	call randomGenerate
 	pop ax
 	cmp ax, 4
@@ -1905,7 +1958,15 @@ tryAgain:
 	mov [byte ptr bx], al
 	xor ax, ax
 	mov bx, pokemonLevel
+retry3:
 	mov al, [byte ptr bx]
+	push ax
+	inc ax
+	push ax ;random level
+	call randomGenerate
+	pop ax
+	cmp ax, 0
+	je retry3
 	mov bx, enemyLevel
 	mov [byte ptr bx], al
 	mov ah, levelHealthMultiplier
