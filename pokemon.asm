@@ -19,6 +19,7 @@ DATASEG
 	Palette db 256*4 dup (0)
 	ScrLine db 320 dup (0)
 			;OUTPUT;
+	versionCounter db 'v1.1$'
 	pokemonMaxHealthMSG db 'Your pokemon already has max health, dont waste your money$'
 	earnCoinMSG db 'Coins earned: $'
 	coinMSG db 'Your coins: $'
@@ -1249,6 +1250,13 @@ beginning:
 	int 10h
 	mov ah, 09
 	mov dx, offset exitMSG
+	int 21h
+	mov ah, 02h
+	mov dl, 74
+	mov dh, 23
+	int 10h
+	mov ah, 09
+	mov dx, offset versionCounter
 	int 21h
 	; new line
 	mov ah, 09
